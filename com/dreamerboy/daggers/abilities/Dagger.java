@@ -31,6 +31,7 @@ import com.dreamerboy.daggers.DaggersAbility;
 import com.projectkorra.projectkorra.GeneralMethods;
 import com.projectkorra.projectkorra.ability.CoreAbility;
 import com.projectkorra.projectkorra.configuration.ConfigManager;
+import com.projectkorra.projectkorra.region.RegionProtection;
 import com.projectkorra.projectkorra.util.DamageHandler;
 import com.projectkorra.projectkorra.util.MovementHandler;
 import com.projectkorra.projectkorra.util.ParticleEffect;
@@ -131,11 +132,10 @@ public class Dagger extends DaggersAbility {
 		
 		this.arrow = parentAbility.getPlayer().launchProjectile(Arrow.class);
 		this.arrow.setKnockbackStrength(0);
-		this.arrow.setBounce(false);
 		if(!type.equals(DaggerType.NO_EFFECT)) this.arrow.setColor(type.getColor());
 		this.arrow.setMetadata("daggerthrow-dagger", new FixedMetadataValue(Daggers.plugin, this));
 		this.arrow.setPickupStatus(parentAbility.doesRequireArrow() ? PickupStatus.ALLOWED : PickupStatus.DISALLOWED);
-		if(parentAbility.isParticlesEnabled() && (!parentAbility.isCosmeticsEnabled() || (this.type.equals(DaggerType.NO_EFFECT) && !DaggerThrow.COSMETICS.containsKey(this.player.getUniqueId()))))
+		if(DaggerThrow.particles && (!DaggerThrow.cosmetics || (this.type.equals(DaggerType.NO_EFFECT) && !DaggerThrow.COSMETICS.containsKey(this.player.getUniqueId()))))
 			this.arrow.setCritical(true);
 		
 		if(this.type.equals(DaggerType.FORCEFIELD))
@@ -224,7 +224,7 @@ public class Dagger extends DaggersAbility {
 					return;
 				}
 				
-				if(this.parentAbility.isParticlesEnabled() && this.parentAbility.isCosmeticsEnabled()) {
+				if(DaggerThrow.particles && DaggerThrow.cosmetics) {
 					if(Math.random() < .45) {
 						final DustOptions dustOptions = new DustOptions(DaggerThrow.COSMETICS.getOrDefault(parentAbility.getPlayer().getUniqueId(), Color.fromRGB(153, 153, 255)), 1.5f);
 						
@@ -243,7 +243,7 @@ public class Dagger extends DaggersAbility {
 					}
 				}
 			} else {
-				if(this.parentAbility.isParticlesEnabled() && this.parentAbility.isCosmeticsEnabled()) {
+				if(DaggerThrow.particles && DaggerThrow.cosmetics) {
 					Color color = this.type.getColor();
 					
 					if(DaggerThrow.COSMETICS.containsKey(player.getUniqueId()))
@@ -272,7 +272,7 @@ public class Dagger extends DaggersAbility {
 			DamageHandler.damageEntity(entity, this.damage, this.parentAbility);
 			((LivingEntity) entity).setNoDamageTicks(0);
 			if(this.type.equals(DaggerType.POISONOUS))
-				((LivingEntity) entity).addPotionEffect(new PotionEffect(PotionEffectType.POISON, this.poisonDuration, this.poisonAmplifier, true));
+				((LivingEntity) entity).addPotionEffect(new PotionEffect(PotionEffectType.POISON, this.poisonDuration, this.poisonAmplifier, true, false));
 			else if(this.type.equals(DaggerType.EXPLOSIVE))
 				this.createExplosion(entity.getLocation());
 			else if(this.type.equals(DaggerType.ELECTRO)) {
@@ -294,7 +294,7 @@ public class Dagger extends DaggersAbility {
 	}
 	
 	private void electrocute(final Entity entity, final double duration) {
-		final DustOptions dustOptions = new DustOptions(DaggerType.ELECTRO.getColor(), 1.25F);
+		final DustOptions dustOptions = new DustOptions(DaggerThrow.COSMETICS.getOrDefault(parentAbility.getPlayer().getUniqueId(), DaggerType.ELECTRO.getColor()), 1.25F);
 		
 		new MovementHandler((LivingEntity) entity, this.parentAbility)
 		.stopWithDuration((long) duration, CustomElement.DAGGERS.getColor() + "* Electrocuted *");
@@ -330,7 +330,7 @@ public class Dagger extends DaggersAbility {
 	public void createExplosion(final Location location) {
 		if(this.breakBlocks) {
 			for(final Block b : GeneralMethods.getBlocksAroundPoint(location, this.explosionPower)) {
-				if(GeneralMethods.isRegionProtectedFromBuild(this.parentAbility, b.getLocation()) || isUnbreakable(b)) {
+				if(RegionProtection.isRegionProtected(this.parentAbility, b.getLocation()) || isUnbreakable(b)) {
 					continue;
 				}
 				
