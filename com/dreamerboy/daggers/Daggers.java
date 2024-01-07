@@ -32,6 +32,7 @@ public class Daggers extends JavaPlugin {
 		
 		log.info("Registering abilities...");
 		CoreAbility.registerPluginAbilities(this, "com.dreamerboy.daggers.abilities");
+		CoreAbility.registerPluginAbilities(this, "com.dreamerboy.daggers.combos");
 		
 		log.info("Initializing config...");
 		initializeConfig();
@@ -48,8 +49,8 @@ public class Daggers extends JavaPlugin {
 	}
 	
 	private void initializeConfig() {
-		final String path = "ExtraAbilities.DreamerBoy.Chi.DaggerThrow.";
-		final FileConfiguration config = ConfigManager.defaultConfig.get();
+		String path = "ExtraAbilities.DreamerBoy.Chi.DaggerThrow.";
+		FileConfiguration config = ConfigManager.defaultConfig.get();
 		
 		config.addDefault(path + "Cooldown", 6000);
 		config.addDefault(path + "ShotCooldown", 100);
@@ -63,7 +64,7 @@ public class Daggers extends JavaPlugin {
 		config.addDefault(path + "RemoveSpouts", true);
 		config.addDefault(path + "Particles.Enabled", true);
 		config.addDefault(path + "Particles.Cosmetics.Enabled", true);
-		config.addDefault(path + "Particles.Cosmetics.ChangeAbilities", true);
+		config.addDefault(path + "Particles.Cosmetics.OnlyTrail", false);
 		config.addDefault(path + "ForceField.Enabled", true);
 		config.addDefault(path + "ForceField.Radius", 4);
 		config.addDefault(path + "ForceField.Knockback", 3);
@@ -83,6 +84,21 @@ public class Daggers extends JavaPlugin {
 		config.addDefault(path + "Explosive.Explosion.BreakBlocks.PlaceFire", true);
 		config.addDefault(path + "Explosive.Explosion.BreakBlocks.RevertExplosion.Enabled", true);
 		config.addDefault(path + "Explosive.Explosion.BreakBlocks.RevertExplosion.RevertTime", 4000);
+		
+		path = "ExtraAbilities.DreamerBoy.Chi.Barrage.";
+		
+		config.addDefault(path + "Enabled", true);
+		config.addDefault(path + "Cooldown", 10000);
+		config.addDefault(path + "Interval", 2);
+		config.addDefault(path + "Amount", 12);
+		config.addDefault(path + "Damage", 1);
+		config.addDefault(path + "RequireArrow", true);
+		
+		config = ConfigManager.languageConfig.get();
+		
+		config.addDefault("Chat.Colors.Daggers", "#ffc247");
+		
 		ConfigManager.defaultConfig.save();
+		ConfigManager.languageConfig.save();
 	}
 }
