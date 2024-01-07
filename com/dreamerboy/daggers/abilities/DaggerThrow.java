@@ -8,7 +8,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-import org.bukkit.ChatColor;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -22,10 +21,13 @@ import org.bukkit.util.Vector;
 import com.dreamerboy.daggers.CustomElement;
 import com.dreamerboy.daggers.DaggersAbility;
 import com.dreamerboy.daggers.abilities.Dagger.DaggerType;
+import com.dreamerboy.daggers.combos.Barrage;
 import com.projectkorra.projectkorra.Element;
 import com.projectkorra.projectkorra.GeneralMethods;
 import com.projectkorra.projectkorra.ability.CoreAbility;
 import com.projectkorra.projectkorra.configuration.ConfigManager;
+
+import net.md_5.bungee.api.ChatColor;
 
 public class DaggerThrow extends DaggersAbility {
 	
@@ -37,7 +39,7 @@ public class DaggerThrow extends DaggersAbility {
 	private int maxAmount, amount, maxHits, requiredArrows;
 	private Map<Integer, Integer> hitCount = new HashMap<>();
 	
-	private boolean particles, cosmetics, limit;
+	private boolean limit;
 	
 	public static boolean poisonous = ConfigManager.getConfig().getBoolean("ExtraAbilities.DreamerBoy.Chi.DaggerThrow.Poisonous.Enabled"),
 			  explosive = ConfigManager.getConfig().getBoolean("ExtraAbilities.DreamerBoy.Chi.DaggerThrow.Explosive.Enabled"),
@@ -45,7 +47,9 @@ public class DaggerThrow extends DaggersAbility {
 			  electro = ConfigManager.getConfig().getBoolean("ExtraAbilities.DreamerBoy.Chi.DaggerThrow.Electro.Enabled"),
 			  fusion = ConfigManager.getConfig().getBoolean("ExtraAbilities.DreamerBoy.Chi.DaggerThrow.PreventFusion"),
 			  spouts = ConfigManager.getConfig().getBoolean("ExtraAbilities.DreamerBoy.Chi.DaggerThrow.RemoveSpouts"),
-			  changeAbilities = ConfigManager.getConfig().getBoolean("ExtraAbilities.DreamerBoy.Chi.DaggerThrow.Particles.Cosmetics.ChangeAbilities");
+			  particles = ConfigManager.getConfig().getBoolean("ExtraAbilities.DreamerBoy.Chi.DaggerThrow.Particles.Enabled"),
+			  cosmetics = ConfigManager.getConfig().getBoolean("ExtraAbilities.DreamerBoy.Chi.DaggerThrow.Particles.Cosmetics.Enabled"),
+			  changeAbilities = !ConfigManager.getConfig().getBoolean("ExtraAbilities.DreamerBoy.Chi.DaggerThrow.Particles.Cosmetics.OnlyTrail");
 	
 	private List<Dagger> daggers = new ArrayList<>();
 	
@@ -54,7 +58,7 @@ public class DaggerThrow extends DaggersAbility {
 	
 		this.requiredArrows = ConfigManager.getConfig().getInt("ExtraAbilities.DreamerBoy.Chi.DaggerThrow.RequireArrows.Amount");
 		
-		if(!bPlayer.canBend(this) || (this.doesRequireArrow() && !player.getInventory().contains(Material.ARROW, this.requiredArrows)))
+		if(!bPlayer.canBend(this) || (this.doesRequireArrow() && (!player.getInventory().contains(Material.ARROW, this.requiredArrows))))
 			return;
 		
 		final DaggerThrow daggerThrow = CoreAbility.getAbility(player, DaggerThrow.class);
@@ -66,7 +70,12 @@ public class DaggerThrow extends DaggersAbility {
 		setFields();
 		start();
 		
-		shootDagger(DAGGER_TYPES.getOrDefault(player.getUniqueId(), DaggerType.NO_EFFECT));
+		if(!hasAbility(player, Barrage.class))
+			shootDagger(DAGGER_TYPES.getOrDefault(player.getUniqueId(), DaggerType.NO_EFFECT));
+	}
+	
+	public DaggerThrow(final CoreAbility ability) {
+		super(ability.getPlayer());
 	}
 	
 	private void setFields() {
@@ -80,9 +89,6 @@ public class DaggerThrow extends DaggersAbility {
 		this.maxHits = ConfigManager.getConfig().getInt(path + "MaximumHits");
 		this.amount = this.maxAmount;
 		this.limit = amount > 0;
-	
-		this.particles = ConfigManager.getConfig().getBoolean(path + "Particles.Enabled");
-		this.cosmetics = ConfigManager.getConfig().getBoolean(path + "Particles.Cosmetics.Enabled");
 	}
 
 	@Override
@@ -151,7 +157,10 @@ public class DaggerThrow extends DaggersAbility {
 	}
 	
 	public boolean shootDagger(final DaggerType type) {
-		if(bPlayer.isOnCooldown("DaggerThrowShot") || (this.limit && --this.amount < 0) || (this.doesRequireArrow() && !removeItem(player, Material.ARROW, 1)))
+		if(bPlayer.isOnCooldown("DaggerThrowShot") || (this.limit && --this.amount < 0))
+			return false;
+		
+		if(this.doesRequireArrow() && removeItem(player, Material.ARROW, 1) == null)
 			return false;
 		
 		final Dagger dagger = new Dagger(this, type);
@@ -164,7 +173,9 @@ public class DaggerThrow extends DaggersAbility {
 		targetedLocation.setPitch(0);
 		targetedLocation.setYaw(0);
 		
-		final Vector vector = targetedLocation.toVector().subtract(this.player.getEyeLocation().toVector());
+		Vector vector = targetedLocation.toVector().subtract(this.player.getEyeLocation().toVector());
+		if(vector.isZero())
+			vector = player.getEyeLocation().getDirection();
 		arrow.setVelocity(vector.normalize().multiply(this.speed));
 		
 		this.lastArrow = System.currentTimeMillis();
@@ -187,14 +198,6 @@ public class DaggerThrow extends DaggersAbility {
 		return this.requiredArrows > 0;
 	}
 	
-	public boolean isParticlesEnabled() {
-		return this.particles;
-	}
-	
-	public boolean isCosmeticsEnabled() {
-		return this.cosmetics;
-	}
-	
 	public List<Dagger> getDaggers() {
 		return this.daggers;
 	}
@@ -208,7 +211,7 @@ public class DaggerThrow extends DaggersAbility {
 	}
 	
 	//Based on the code in JedCore
-	public static boolean removeItem(final Player player, final Material material, final int amount) {
+	public static ItemStack removeItem(final Player player, final Material material, final int amount) {
 		for(final ItemStack item : player.getInventory().getContents()) {
 			if(item == null || item.getType() != material || item.getAmount() < amount)
 				continue;
@@ -227,9 +230,9 @@ public class DaggerThrow extends DaggersAbility {
 				}
 			}
 			
-			return true;
+			return item;
 		}
 		
-		return false;
+		return null;
 	}
 }
