@@ -29,12 +29,12 @@ public abstract class DaggersAbility extends ElementalAbility implements AddonAb
 
 	@Override
 	public String getAuthor() {
-		return "DreamerBoy";
+		return "DreamerBoy / Dramaura";
 	}
 
 	@Override
 	public String getVersion() {
-		return "v1.0.0";
+		return "v2.0.0";
 	}
 
 	@Override
