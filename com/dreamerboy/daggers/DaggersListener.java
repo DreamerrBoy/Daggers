@@ -5,7 +5,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.bukkit.ChatColor;
 import org.bukkit.Color;
 import org.bukkit.GameMode;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -25,15 +24,16 @@ import org.bukkit.event.player.PlayerToggleSneakEvent;
 import com.dreamerboy.daggers.abilities.Dagger;
 import com.dreamerboy.daggers.abilities.Dagger.DaggerType;
 import com.dreamerboy.daggers.abilities.DaggerThrow;
+import com.dreamerboy.daggers.combos.Barrage;
 import com.projectkorra.projectkorra.BendingPlayer;
-import com.projectkorra.projectkorra.GeneralMethods;
 import com.projectkorra.projectkorra.ability.CoreAbility;
 import com.projectkorra.projectkorra.airbending.AirSpout;
 import com.projectkorra.projectkorra.configuration.ConfigManager;
+import com.projectkorra.projectkorra.util.ActionBar;
+import com.projectkorra.projectkorra.util.ChatUtil;
 import com.projectkorra.projectkorra.waterbending.WaterSpout;
 
-import net.md_5.bungee.api.ChatMessageType;
-import net.md_5.bungee.api.chat.TextComponent;
+import net.md_5.bungee.api.ChatColor;
 
 public class DaggersListener implements Listener {
 	
@@ -88,14 +88,14 @@ public class DaggersListener implements Listener {
 					if(r <= 255 && g <= 255 && b <= 255) {
 						final Color c = Color.fromRGB(r, g, b);
 						DaggerThrow.COSMETICS.put(player.getUniqueId(), c);
-						GeneralMethods.sendBrandingMessage(player, CustomElement.DAGGERS.getColor() + "You have successfully changed your daggers trail!");
+						ChatUtil.sendBrandingMessage(player, CustomElement.DAGGERS.getColor() + "You have successfully changed your daggers trail!");
 						event.setCancelled(true);
 					}
 				}
 			} else if(colorcode.equalsIgnoreCase("off")) {
 				if(DaggerThrow.COSMETICS.containsKey(player.getUniqueId()))
 					DaggerThrow.COSMETICS.remove(player.getUniqueId());
-				GeneralMethods.sendBrandingMessage(player, CustomElement.DAGGERS.getColor() + "You have successfully reset your daggers trail!");
+				ChatUtil.sendBrandingMessage(player, CustomElement.DAGGERS.getColor() + "You have successfully reset your daggers trail!");
 				event.setCancelled(true);
 			}
 		}
@@ -111,29 +111,28 @@ public class DaggersListener implements Listener {
 	}
 	
 	@EventHandler
-	public void onSneak(PlayerToggleSneakEvent e) {
+	public void onSneak(final PlayerToggleSneakEvent e) {
 		final Player player = e.getPlayer();
 		final BendingPlayer bPlayer = BendingPlayer.getBendingPlayer(player);
 		
-		if(e.isCancelled() || bPlayer == null || e.isSneaking() || player.getGameMode().equals(GameMode.SPECTATOR)) 
+		if(e.isCancelled() || bPlayer == null || e.isSneaking() || player.getGameMode().equals(GameMode.SPECTATOR))
 			return;
-		
 		
 		if(bPlayer.getBoundAbilityName().equalsIgnoreCase("DaggerThrow")) {
 			final DaggerType current = DaggerThrow.DAGGER_TYPES.getOrDefault(player.getUniqueId(), DaggerType.NO_EFFECT);
 			final List<DaggerType> list = new ArrayList<>(Arrays.asList(DaggerType.values()).stream().filter(type -> type.isEnabled() && player.hasPermission("bending.ability.daggerthrow." + type.toString())).collect(Collectors.toList()));
 			
-			if(list.size() <= 1)
+			if(list.size() <= 1) 
 				return;
-			
-			DaggerType newType = DaggerType.NO_EFFECT;
+				
+			DaggerType newType;
 			if(list.indexOf(current)+1 > list.size()-1)
 				newType = list.get(0);
 			else
 				newType = list.get(list.indexOf(current)+1);
 			
 			DaggerThrow.DAGGER_TYPES.put(player.getUniqueId(), newType);
-			player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent("" + CustomElement.DAGGERS.getColor() + (bPlayer.isOnCooldown("DaggerThrow") ? "" + ChatColor.BOLD + ChatColor.STRIKETHROUGH : ChatColor.BOLD) + newType.getDisplay()));
+			ActionBar.sendActionBar("" + CustomElement.DAGGERS.getColor() + ChatColor.BOLD + (bPlayer.isOnCooldown("DaggerThrow") ? ChatColor.STRIKETHROUGH : "") + newType.getDisplay(), player);
 		}
 	}
 	
@@ -147,15 +146,19 @@ public class DaggersListener implements Listener {
 			
 			final Dagger dagger = Dagger.getAbilityFromArrow(arrow);
 			
-			if(dagger == null)
-				return;
-			
-			if(dagger.getType().equals(DaggerType.EXPLOSIVE))
-				dagger.createExplosion(event.getHitBlock().getLocation());
-			else if(dagger.getType().equals(DaggerType.POISONOUS))
-				dagger.createPoisonBurst(event.getHitBlock().getLocation());
-			
-			dagger.remove();
+			if(dagger != null) {
+				if(dagger.getType().equals(DaggerType.EXPLOSIVE))
+					dagger.createExplosion(event.getHitBlock().getLocation());
+				else if(dagger.getType().equals(DaggerType.POISONOUS))
+					dagger.createPoisonBurst(event.getHitBlock().getLocation());
+				
+				dagger.remove();
+			} else {
+				final Barrage barrage = Barrage.getAbilityFromArrow(arrow);
+				if(barrage != null) {
+					barrage.getDaggerFromArrow(arrow).remove();
+				}
+			}
 		}
 	}
 	
@@ -166,24 +169,40 @@ public class DaggersListener implements Listener {
 			
 			if(arrow.getShooter() instanceof Player) {
 				final Dagger dagger = Dagger.getAbilityFromArrow(arrow);
+				final Barrage barrage = Barrage.getAbilityFromArrow(arrow);
 				
-				if(dagger == null)
-					return;
-				
-				event.setDamage(0D);
-				event.setCancelled(true);
-				dagger.damageEntity(event.getEntity());
-				dagger.remove();
-				if(DaggerThrow.spouts && event.getEntity() instanceof Player) {
-					final Player target = (Player) event.getEntity();
-					final AirSpout airSpout = CoreAbility.getAbility(target, AirSpout.class);
-					final WaterSpout waterSpout = CoreAbility.getAbility(target, WaterSpout.class);
-					
-					if(airSpout != null)
-						airSpout.remove();
-					
-					if(waterSpout != null)
-						waterSpout.remove();
+				if(dagger != null) {
+					event.setDamage(0D);
+					event.setCancelled(true);
+					dagger.damageEntity(event.getEntity());
+					dagger.remove();
+					if(DaggerThrow.spouts && event.getEntity() instanceof Player) {
+						final Player target = (Player) event.getEntity();
+						final AirSpout airSpout = CoreAbility.getAbility(target, AirSpout.class);
+						final WaterSpout waterSpout = CoreAbility.getAbility(target, WaterSpout.class);
+						
+						if(airSpout != null)
+							airSpout.remove();
+						
+						if(waterSpout != null)
+							waterSpout.remove();
+					}
+				} else if(barrage != null) {
+					event.setDamage(0D);
+					event.setCancelled(true);
+					barrage.damageEntity(event.getEntity());
+					barrage.getDaggerFromArrow(arrow).remove();
+					if(DaggerThrow.spouts && event.getEntity() instanceof Player) {
+						final Player target = (Player) event.getEntity();
+						final AirSpout airSpout = CoreAbility.getAbility(target, AirSpout.class);
+						final WaterSpout waterSpout = CoreAbility.getAbility(target, WaterSpout.class);
+						
+						if(airSpout != null)
+							airSpout.remove();
+						
+						if(waterSpout != null)
+							waterSpout.remove();
+					}
 				}
 			}		
 		}
