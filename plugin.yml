@@ -6,6 +6,8 @@ main: com.dreamerboy.daggers.Daggers
 description: daggers by dreamerboy
 depend: [ProjectKorra]
 permissions:
+  bending.ability.barrage:
+    default: true
   bending.ability.daggerthrow:
     default: true
   bending.ability.daggerthrow.cosmetics:
